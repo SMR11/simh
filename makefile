@@ -354,7 +354,7 @@ ifeq (${WIN32},)  #*nix Environments (&& cygwin)
           endif
           ifeq (liblocal,$(shell if ${TEST} -d /opt/local/lib; then echo liblocal; fi))
             LIBPATH += /opt/local/lib
-            OS_CCDEFS += -L/opt/local/lib -R/opt/local/lib -rpath /opt/local/lib
+            OS_CCDEFS += -L/opt/local/lib -R/opt/local/lib 
           endif
           OS_CCDEFS += -D_LARGEFILE_SOURCE
         else
