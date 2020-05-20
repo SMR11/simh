@@ -603,32 +603,6 @@ ifeq (${WIN32},)  #*nix Environments (&& cygwin)
           endif
         endif
       endif
-    else
-      ifneq (,$(call find_include,SDL/SDL))
-        ifneq (,$(call find_lib,SDL))
-          ifneq (,$(findstring Haiku,$(OSTYPE)))
-            ifneq (,$(shell which sdl-config))
-              SDLX_CONFIG = sdl-config
-            endif
-          else
-            SDLX_CONFIG = $(realpath $(dir $(call find_include,SDL/SDL))../../bin/sdl-config)
-          endif
-          ifneq (,$(SDLX_CONFIG))
-            VIDEO_CCDEFS += -DHAVE_LIBSDL -DUSE_SIM_VIDEO `$(SDLX_CONFIG) --cflags`
-            VIDEO_LDFLAGS += `$(SDLX_CONFIG) --libs`
-            VIDEO_FEATURES = - video capabilities provided by libSDL (Simple Directmedia Layer)
-            DISPLAYL = ${DISPLAYD}/display.c $(DISPLAYD)/sim_ws.c
-            DISPLAYVT = ${DISPLAYD}/vt11.c
-            DISPLAY340 = ${DISPLAYD}/type340.c
-            DISPLAYNG = ${DISPLAYD}/ng.c
-            DISPLAY_OPT += -DUSE_DISPLAY $(VIDEO_CCDEFS) $(VIDEO_LDFLAGS)
-            $(info using libSDL: $(call find_include,SDL/SDL))
-            ifeq (Darwin,$(OSTYPE))
-              VIDEO_CCDEFS += -DSDL_MAIN_AVAILABLE
-            endif
-          endif
-        endif
-      endif
     endif
     ifeq (cygwin,$(OSTYPE))
       LIBEXT = $(LIBEXTSAVE)
@@ -1620,7 +1594,7 @@ I7094_OPT = -DUSE_INT64 -I ${I7094D}
 
 I650D = ${SIMHD}/I650
 I650 = ${I650D}/i650_cpu.c ${I650D}/i650_cdr.c ${I650D}/i650_cdp.c \
-	${I650D}/i650_sys.c
+	${I650D}/i650_dsk.c ${I650D}/i650_mt.c ${I650D}/i650_sys.c
 I650_OPT = -I ${I650D} -DUSE_INT64 -DUSE_SIM_CARD
 
 
@@ -1684,7 +1658,7 @@ ALTAIRZ80 = ${ALTAIRZ80D}/altairz80_cpu.c ${ALTAIRZ80D}/altairz80_cpu_nommu.c \
 	${ALTAIRZ80D}/s100_tarbell.c \
 	${ALTAIRZ80D}/wd179x.c ${ALTAIRZ80D}/s100_hdc1001.c \
 	${ALTAIRZ80D}/s100_if3.c ${ALTAIRZ80D}/s100_adcs6.c \
-	${ALTAIRZ80D}/m68kcpu.c ${ALTAIRZ80D}/m68kdasm.c \
+	${ALTAIRZ80D}/m68kcpu.c ${ALTAIRZ80D}/m68kdasm.c ${ALTAIRZ80D}/m68kasm.c \
 	${ALTAIRZ80D}/m68kopac.c ${ALTAIRZ80D}/m68kopdm.c \
 	${ALTAIRZ80D}/m68kopnz.c ${ALTAIRZ80D}/m68kops.c ${ALTAIRZ80D}/m68ksim.c
 ALTAIRZ80_OPT = -I ${ALTAIRZ80D} -DUSE_SIM_IMD
@@ -2062,13 +2036,13 @@ KL10 = ${KL10D}/kx10_cpu.c ${KL10D}/kx10_sys.c ${KL10D}/kx10_df.c \
 KL10_OPT = -DKL=1 -DUSE_INT64 -I $(KL10D) -DUSE_SIM_CARD ${NETWORK_OPT} 
 
 ATT3B2D = ${SIMHD}/3B2
-ATT3B2 = ${ATT3B2D}/3b2_cpu.c ${ATT3B2D}/3b2_mmu.c \
-	${ATT3B2D}/3b2_iu.c ${ATT3B2D}/3b2_if.c \
-	${ATT3B2D}/3b2_id.c ${ATT3B2D}/3b2_dmac.c \
-	${ATT3B2D}/3b2_sys.c ${ATT3B2D}/3b2_io.c \
+ATT3B2M400 = ${ATT3B2D}/3b2_400_cpu.c ${ATT3B2D}/3b2_400_sys.c \
+	${ATT3B2D}/3b2_400_stddev.c ${ATT3B2D}/3b2_400_mmu.c \
+	${ATT3B2D}/3b2_400_mau.c ${ATT3B2D}/3b2_iu.c \
+	${ATT3B2D}/3b2_if.c ${ATT3B2D}/3b2_id.c \
+	${ATT3B2D}/3b2_dmac.c ${ATT3B2D}/3b2_io.c \
 	${ATT3B2D}/3b2_ports.c ${ATT3B2D}/3b2_ctc.c \
-	${ATT3B2D}/3b2_ni.c ${ATT3B2D}/3b2_mau.c \
-	${ATT3B2D}/3b2_sysdev.c
+	${ATT3B2D}/3b2_ni.c
 ATT3B2_OPT = -DUSE_INT64 -DUSE_ADDR64 -I ${ATT3B2D} ${NETWORK_OPT}
 
 ###
@@ -2133,7 +2107,7 @@ ALL = pdp1 pdp4 pdp7 pdp8 pdp9 pdp15 pdp11 pdp10 \
 	swtp6800mp-a swtp6800mp-a2 tx-0 ssem b5500 isys8010 isys8020 \
 	isys8030 isys8024 imds-210 imds-220 imds-225 imds-230 imds-800 imds-810 \
 	scelbi 3b2 i701 i704 i7010 i7070 i7080 i7090 \
-	sigma uc15 pdp10-ka pdp10-ki pdp10-kl pdp6
+	sigma uc15 pdp10-ka pdp10-ki pdp10-kl pdp6 i650
 
 all : ${ALL}
 
@@ -2832,9 +2806,9 @@ endif
 
 3b2 : ${BIN}3b2${EXE}
  
-${BIN}3b2${EXE} : ${ATT3B2} ${SIM} ${BUILD_ROMS}
+${BIN}3b2${EXE} : ${ATT3B2M400} ${SIM} ${BUILD_ROMS}
 	${MKDIRBIN}
-	${CC} ${ATT3B2} ${SIM} ${ATT3B2_OPT} ${CC_OUTSPEC} ${LDFLAGS}
+	${CC} ${ATT3B2M400} ${SIM} ${ATT3B2_OPT} ${CC_OUTSPEC} ${LDFLAGS}
 ifneq (,$(call find_test,${ATT3B2D},3b2))
 	$@ $(call find_test,${ATT3B2D},3b2) ${TEST_ARG}
 endif
@@ -2896,7 +2870,6 @@ endif
 i650 : ${BIN}i650${EXE}
 
 ${BIN}i650${EXE} : ${I650} ${SIM} 
-	#cmake:ignore-target
 	${MKDIRBIN}
 	${CC} ${I650} ${SIM} ${I650_OPT} ${CC_OUTSPEC} ${LDFLAGS}
 ifneq (,$(call find_test,${I650D},i650))

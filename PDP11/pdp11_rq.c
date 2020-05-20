@@ -156,11 +156,12 @@ extern int32 MMR2;
 #define RQ_M_PFN        0x1FFFFF                        /* map entry PFN */
 
 #define UNIT_V_ONL      (DKUF_V_UF + 0)                 /* online */
-#define UNIT_V_WLK      (DKUF_V_UF + 1)                 /* hwre write lock */
-#define UNIT_V_ATP      (DKUF_V_UF + 2)                 /* attn pending */
-#define UNIT_V_DTYPE    (DKUF_V_UF + 3)                 /* drive type */
-#define UNIT_M_DTYPE    0x1F
-#define UNIT_V_NOAUTO   (DKUF_V_UF + 8)                 /* noautosize */
+#define UNIT_V_WLK      DKUF_V_WLK                      /* hwre write lock */
+#define UNIT_V_ATP      (UNIT_V_ONL + 1)                /* attn pending */
+#define UNIT_V_DTYPE    (UNIT_V_ATP + 1)                /* drive type */
+#define UNIT_W_DTYPE    5                               /* 5b drive type encode */
+#define UNIT_M_DTYPE    ((1u << UNIT_W_DTYPE) - 1)
+#define UNIT_V_NOAUTO   (UNIT_V_DTYPE + UNIT_W_DTYPE)   /* noautosize */
 #define UNIT_ONL        (1 << UNIT_V_ONL)
 #define UNIT_WLK        (1 << UNIT_V_WLK)
 #define UNIT_ATP        (1 << UNIT_V_ATP)
@@ -766,6 +767,35 @@ static struct drvtyp drv_tab[] = {
     { 0 }
     };
 
+#undef RQ_DRV
+#define RQ_DRV(d) #d
+
+static const char *drv_types[] = {
+    RQ_DRV (RX50),
+    RQ_DRV (RX33),
+    RQ_DRV (RD51),
+    RQ_DRV (RD31),
+    RQ_DRV (RD52),
+    RQ_DRV (RD53),
+    RQ_DRV (RD54),
+    RQ_DRV (RA82),
+    RQ_DRV (RRD40),
+    RQ_DRV (RA72),
+    RQ_DRV (RA90),
+    RQ_DRV (RA92),
+    RQ_DRV (RA8U),
+    RQ_DRV (RA60),
+    RQ_DRV (RA81),
+    RQ_DRV (RA71),
+    RQ_DRV (RD32),
+    RQ_DRV (RC25),
+    RQ_DRV (RCF25),
+    RQ_DRV (RA80),
+    RQ_DRV (RA70),
+    RQ_DRV (RA73),
+    NULL
+    };
+
 struct ctlrtyp {
     uint32      uqpm;                                   /* port model */
     uint16      model;                                  /* controller model */
@@ -1080,15 +1110,17 @@ MTAB rq_mod[] = {
       &rq_set_type, NULL, NULL, "Set RA80 Disk Type" },
     { MTAB_XTD|MTAB_VUN|MTAB_VALR, RA8U_DTYPE, NULL, "RAUSER=SizeInMB",
       &rq_set_type, NULL, NULL, "Set RAUSER Disk Type and its size" },
+    { MTAB_XTD|MTAB_VUN, RA8U_DTYPE, NULL, "RA8U",
+      &rq_set_type, NULL, NULL, NULL },
     { MTAB_XTD|MTAB_VUN, 0, "TYPE", NULL,
       NULL, &rq_show_type, NULL, "Display device type" },
     { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0, "UNIT", "UNIT=val (0-65534)",
       &rq_set_plug, &rq_show_plug, NULL, "Set/Display Unit plug value" },
     { MTAB_XTD|MTAB_VDV|MTAB_VALR, 0, NULL, "DRIVES=val (4-254)",
       &rq_set_drives, NULL, NULL, "Set Number of Drives" },
-    { UNIT_NOAUTO, UNIT_NOAUTO, "noautosize", "NOAUTOSIZE", NULL, NULL, NULL, "Disables disk autosize on attach" },
-    { UNIT_NOAUTO,           0, "autosize",   "AUTOSIZE",   NULL, NULL, NULL, "Enables disk autosize on attach" },
-    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0, "FORMAT", "FORMAT={SIMH|VHD|RAW}",
+    { UNIT_NOAUTO, UNIT_NOAUTO, "noautosize", "NOAUTOSIZE", NULL, NULL, NULL, "Disable disk autosize on attach" },
+    { UNIT_NOAUTO,           0, "autosize",   "AUTOSIZE",   NULL, NULL, NULL, "Enable disk autosize on attach" },
+    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0, "FORMAT", "FORMAT={AUTO|SIMH|VHD|RAW}",
       &sim_disk_set_fmt, &sim_disk_show_fmt, NULL, "Set/Display disk format" },
 #if defined (VM_PDP11)
     { MTAB_XTD|MTAB_VDV|MTAB_VALR, 004, "ADDRESS", "ADDRESS",
@@ -2935,7 +2967,8 @@ t_stat rq_attach (UNIT *uptr, CONST char *cptr)
 MSC *cp = rq_ctxmap[uptr->cnum];
 t_stat r;
 
-r = sim_disk_attach (uptr, cptr, RQ_NUMBY, sizeof (uint16), (uptr->flags & UNIT_NOAUTO), DBG_DSK, drv_tab[GET_DTYPE (uptr->flags)].name, 0, 0);
+r = sim_disk_attach_ex (uptr, cptr, RQ_NUMBY, sizeof (uint16), (uptr->flags & UNIT_NOAUTO), DBG_DSK, 
+                        drv_tab[GET_DTYPE (uptr->flags)].name, 0, 0, (uptr->flags & UNIT_NOAUTO) ? NULL : drv_types);
 if (r != SCPE_OK)
     return r;
 

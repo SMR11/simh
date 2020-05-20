@@ -2070,13 +2070,14 @@ if (0 == strncmp("tap:", savname, 4)) {
         }
       else {
         *fd_handle = (SOCKET)tun;
-        strcpy(savname, devname);
+        memmove(savname, devname, strlen(devname) + 1);
         }
 #if defined (__APPLE__)
-      if (tun < 0) {    /* Not good yet? */
+      if (tun >= 0) {       /* Good so far? */
         struct ifreq ifr;
         int s;
 
+        /* Now make sure the interface is up */
         memset (&ifr, 0, sizeof(ifr));
         ifr.ifr_addr.sa_family = AF_INET;
         strlcpy(ifr.ifr_name, savname, sizeof(ifr.ifr_name));
@@ -2474,13 +2475,20 @@ return SCPE_OK;
 const char *eth_version (void)
 {
 #if defined(HAVE_PCAP_NETWORK)
-static char version[256];
+static char version[300];
 
 if (!version[0]) {
-  if (memcmp(pcap_lib_version(), "Npcap", 5))
-    strlcpy(version, pcap_lib_version(), sizeof(version));
-  else
-    snprintf(version, sizeof(version), "Unsupported - %s", pcap_lib_version());
+  strlcpy(version, pcap_lib_version(), sizeof(version));
+  if (memcmp(pcap_lib_version(), "Npcap", 5) == 0) {
+    char maj_min[CBUFSIZE];
+    char *c = version;
+
+    while (*c && !isdigit (*c))
+      ++c;
+    get_glyph (c, maj_min, ',');
+    if (strcmp ("0.9990", maj_min) < 0)
+      snprintf(version, sizeof(version), "Unsupported - %s", pcap_lib_version());
+    }
   }
 return version;
 #else
