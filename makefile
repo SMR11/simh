@@ -348,6 +348,14 @@ ifeq (${WIN32},)  #*nix Environments (&& cygwin)
             LIBPATH += /opt/sfw/lib
             OS_LDFLAGS += -L/opt/sfw/lib -R/opt/sfw/lib
           endif
+          ifeq (inclocal,$(shell if ${TEST} -d /opt/local/include; then echo inclocal; fi))
+            INCPATH += /opt/local/include
+            OS_CCDEFS += -I/opt/local/include
+          endif
+          ifeq (liblocal,$(shell if ${TEST} -d /opt/local/lib; then echo liblocal; fi))
+            LIBPATH += /opt/local/lib
+            OS_CCDEFS += -L/opt/local/lib -R/opt/local/lib -rpath /opt/local/lib
+          endif
           OS_CCDEFS += -D_LARGEFILE_SOURCE
         else
           ifeq (cygwin,$(OSTYPE))
